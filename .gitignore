@@ -3,3 +3,5 @@
 *.ex5
 *.ex4
 /Tester
+/Logs
+*.dat
