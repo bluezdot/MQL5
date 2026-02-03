@@ -33,6 +33,11 @@ int ema10_handle;
 int ema20_handle;
 
 //+------------------------------------------------------------------+
+//| Input parameters                                                 |
+//+------------------------------------------------------------------+
+input int ShortPeriod = 10;      // Short EMA period
+input int LongPeriod = 20;       // Long EMA period
+//+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
 //+------------------------------------------------------------------+
 int OnInit()
@@ -46,8 +51,8 @@ int OnInit()
    ArraySetAsSeries(ema20_buffer, true);
 
 //--- create EMA handles
-   ema10_handle = iMA(_Symbol, _Period, 10, 0, MODE_EMA, PRICE_CLOSE);
-   ema20_handle = iMA(_Symbol, _Period, 20, 0, MODE_EMA, PRICE_CLOSE);
+   ema10_handle = iMA(_Symbol, _Period, ShortPeriod, 0, MODE_EMA, PRICE_CLOSE);
+   ema20_handle = iMA(_Symbol, _Period, LongPeriod, 0, MODE_EMA, PRICE_CLOSE);
 
    if(ema10_handle == INVALID_HANDLE || ema20_handle == INVALID_HANDLE)
      {
