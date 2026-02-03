@@ -40,7 +40,7 @@ int OnInit()
      }
 
 //--- set magic number
-   trade.SetExpertMagicNumber(1231);
+   trade.SetExpertMagicNumber(1233);
    
 //---
    return(INIT_SUCCEEDED);

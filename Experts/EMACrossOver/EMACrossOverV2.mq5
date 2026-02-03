@@ -24,7 +24,6 @@ input int LongPeriod = 20;       // Long EMA period
 CTrade trade;
 int ema_short_handle;
 int ema_long_handle;
-int last_cross = 0;    // 1 = bullish, -1 = bearish, 0 = unknown
 bool can_enter = false;
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -42,7 +41,7 @@ int OnInit()
      }
 
 //--- set magic number
-   trade.SetExpertMagicNumber(123456);
+   trade.SetExpertMagicNumber(1232);
    
 //---
    return(INIT_SUCCEEDED);
@@ -75,13 +74,11 @@ void OnTick()
    //--- detect crossover events
    if(prev_short <= prev_long && curr_short > curr_long) // bullish crossover
      {
-      last_cross = 1;
       can_enter = true;
       Print("Bullish crossover detected - entry armed.");
      }
    else if(prev_short >= prev_long && curr_short < curr_long) // bearish crossover
      {
-      last_cross = -1;
       can_enter = false;
       Print("Bearish crossover detected - closing positions and blocking entries.");
       if(PositionSelect(_Symbol))
