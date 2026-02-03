@@ -1,2 +1,5 @@
 .vscode
 *.chr
+*.ex5
+*.ex4
+/Tester
