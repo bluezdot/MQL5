@@ -9,8 +9,6 @@
 //+------------------------------------------------------------------+
 //| Input parameters                                                 |
 //+------------------------------------------------------------------+
-input double StopLossPips = 400;      // Stop Loss in pips
-input double TakeProfitPips = 800;    // Take Profit in pips
 input double LotSize = 0.01;         // Lot size for each trade
 input int ShortPeriod = 10;      // Short EMA period
 input int LongPeriod = 20;       // Long EMA period
@@ -65,35 +63,33 @@ void OnTick() {
      {
       return;
      }
-
-  //--- get current prices
-   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-   double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
    
-  //--- check for buy signal
-   if(ema_short[0] > ema_long[0] && PositionsTotal() == 0)
-     {
-      if (StopLossPips == 0 && TakeProfitPips == 0)
-        {
-          // open buy position without SL and TP
-          trade.Buy(LotSize, _Symbol, 0, 0, 0, "Open EMA Crossover Buy without SL/TP");
-        }
-      else 
-        {
-          // calculate SL and TP in prices
-          double sl = ask - (StopLossPips * point * 10);   // SL below ask price
-          double tp = ask + (TakeProfitPips * point * 10); // TP above ask price
+  //--- check for existing position
+   bool hasPosition = PositionSelect(_Symbol);
+   long posType = -1;
+   if(hasPosition) posType = PositionGetInteger(POSITION_TYPE);
 
-          // open buy position
-          trade.Buy(LotSize, _Symbol, 0, sl, tp, "Open EMA Crossover Buy with SL/TP");
-        }
+  //--- Buy logic
+   if(ema_short[0] > ema_long[0])
+     {
+      // Close Sell position if it exists
+      if(hasPosition && posType == POSITION_TYPE_SELL)
+         trade.PositionClose(_Symbol);
+      
+      // Open Buy if no position
+      if(!PositionSelect(_Symbol))
+         trade.Buy(LotSize, _Symbol, 0, 0, 0, "Open EMA Crossover Buy");
      }
    
-  //--- check for sell signal (close position)
-   else if(ema_short[0] < ema_long[0] && PositionsTotal() > 0)
+  //--- Sell logic
+   else if(ema_short[0] < ema_long[0])
      {
-      // close all positions
-      trade.PositionClose(_Symbol);
+      // Close Buy position if it exists
+      if(hasPosition && posType == POSITION_TYPE_BUY)
+         trade.PositionClose(_Symbol);
+         
+      // Open Sell if no position
+      if(!PositionSelect(_Symbol))
+         trade.Sell(LotSize, _Symbol, 0, 0, 0, "Open EMA Crossover Sell");
      }
 }
