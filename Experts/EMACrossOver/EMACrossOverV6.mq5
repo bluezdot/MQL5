@@ -82,10 +82,10 @@ void OnTick() {
    double currentPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    
    // Crossover detection: 
-   // ema_short[0] is current bar, ema_short[1] is previous bar
-   bool isCrossUp = (ema_short[1] <= ema_long[1] && ema_short[0] > ema_long[0]);
-   bool isCrossDown = (ema_short[1] >= ema_long[1] && ema_short[0] < ema_long[0]);
-   
+   // ema_short[1] is current bar (changing), ema_short[0] is previous bar (fixed)
+   bool isCrossUp = (ema_short[0] <= ema_long[0] && ema_short[1] > ema_long[1]);
+   bool isCrossDown = (ema_short[0] >= ema_long[0] && ema_short[1] < ema_long[1]);
+
   //--- check for buy signal (New Crossover + Filter)
    if(isCrossUp && currentPrice > ema_longterm[0] && PositionsTotal() == 0)
      {
