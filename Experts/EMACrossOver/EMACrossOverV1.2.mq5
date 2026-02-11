@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//|                                                      BotDemo.mq5 |
+//|                                             EMACrossOverV1.2.mq5 |
 //|                                  Copyright 2026, MetaQuotes Ltd. |
 //|                                             https://www.mql5.com |
 //+------------------------------------------------------------------+
@@ -10,10 +10,11 @@
 //| Input parameters                                                 |
 //+------------------------------------------------------------------+
 input double StopLossPips = 400;      // Stop Loss in pips
-input double TakeProfitPips = 800;    // Take Profit in pips
 input double LotSize = 0.01;         // Lot size for each trade
 input int ShortPeriod = 10;      // Short EMA period
 input int LongPeriod = 20;       // Long EMA period
+input double RR_Ratio = 2.0;       // Risk:Reward ratio for Take Profit
+input int MagicNumber = 123456;    // Magic Number
 //+------------------------------------------------------------------+
 //| Include files                                                    |
 //+------------------------------------------------------------------+
@@ -25,12 +26,13 @@ CTrade trade;
 int ema_short_handle;
 int ema_long_handle;
 bool can_enter = false;
+double ema_short[];
+double ema_long[];
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit()
   {
-//--- create EMA handles
    ema_short_handle = iMA(_Symbol, _Period, ShortPeriod, 0, MODE_EMA, PRICE_CLOSE);
    ema_long_handle = iMA(_Symbol, _Period, LongPeriod, 0, MODE_EMA, PRICE_CLOSE);
    
@@ -39,11 +41,12 @@ int OnInit()
       Print("Error creating EMA handles");
       return(INIT_FAILED);
      }
-
-//--- set magic number
-   trade.SetExpertMagicNumber(1232);
    
-//---
+   ArraySetAsSeries(ema_short, true);
+   ArraySetAsSeries(ema_long, true);
+   
+   trade.SetExpertMagicNumber(MagicNumber);
+   
    return(INIT_SUCCEEDED);
   }
 //+------------------------------------------------------------------+
@@ -51,7 +54,6 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
   {
-//--- release EMA handles
    IndicatorRelease(ema_short_handle);
    IndicatorRelease(ema_long_handle);
   }
@@ -60,16 +62,17 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
   {
-   //--- get EMA values from previous two closed bars (shifts 1 and 2)
-   double ema_short[2], ema_long[2];
-   if(CopyBuffer(ema_short_handle, 0, 1, 2, ema_short) != 2 ||
-      CopyBuffer(ema_long_handle, 0, 1, 2, ema_long) != 2)
+   // start_pos = 0 => get from current bar
+   // Ưu điểm: Bắt tín hiệu sớm hơn so với start_pos = 1
+   // Nhược điểm: Có thể bị nhiễu bởi tín hiệu giả
+   if(CopyBuffer(ema_short_handle, 0, 0, 2, ema_short) != 2 ||
+      CopyBuffer(ema_long_handle, 0, 0, 2, ema_long) != 2)
      {
       return;
      }
 
-   double prev_short = ema_short[1], prev_long = ema_long[1]; // older closed bar
-   double curr_short = ema_short[0], curr_long = ema_long[0]; // more recent closed bar
+   double prev_short = ema_short[1], prev_long = ema_long[1]; // previous closed bar
+   double curr_short = ema_short[0], curr_long = ema_long[0]; // current/newest closed bar
 
    //--- detect crossover events
    if(prev_short <= prev_long && curr_short > curr_long) // bullish crossover
@@ -90,8 +93,9 @@ void OnTick()
      {
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       double pip = SymbolInfoDouble(_Symbol, SYMBOL_POINT) * 10.0;
-      double sl = (StopLossPips > 0) ? ask - StopLossPips * pip : 0;
-      double tp = (TakeProfitPips > 0) ? ask + TakeProfitPips * pip : 0;
+      double risk = StopLossPips * pip;
+      double sl = (StopLossPips > 0) ? ask - risk : 0;
+      double tp = (RR_Ratio > 0) ? ask + RR_Ratio * risk : 0;
 
       if(trade.Buy(LotSize, _Symbol, 0, sl, tp, "EMA crossover buy"))
         {
