@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//|                                                      BotDemo.mq5 |
+//|                                             EMACrossOverV1.4.mq5 |
 //|                                  Copyright 2026, MetaQuotes Ltd. |
 //|                                             https://www.mql5.com |
 //+------------------------------------------------------------------+
@@ -12,6 +12,7 @@
 input double LotSize = 0.01;         // Lot size for each trade
 input int ShortPeriod = 10;      // Short EMA period
 input int LongPeriod = 20;       // Long EMA period
+input int MagicNumber = 123456;    // Magic Number
 //+------------------------------------------------------------------+
 //| Include files                                                    |
 //+------------------------------------------------------------------+
@@ -27,7 +28,6 @@ int ema_long_handle;
 //+------------------------------------------------------------------+
 int OnInit()
   {
-//--- create EMA handles
    ema_short_handle = iMA(_Symbol, _Period, ShortPeriod, 0, MODE_EMA, PRICE_CLOSE);
    ema_long_handle = iMA(_Symbol, _Period, LongPeriod, 0, MODE_EMA, PRICE_CLOSE);
    
@@ -37,10 +37,8 @@ int OnInit()
       return(INIT_FAILED);
      }
 
-//--- set magic number
-   trade.SetExpertMagicNumber(1233);
+   trade.SetExpertMagicNumber(MagicNumber);
    
-//---
    return(INIT_SUCCEEDED);
   }
 //+------------------------------------------------------------------+
@@ -48,7 +46,6 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
   {
-//--- release EMA handles
    IndicatorRelease(ema_short_handle);
    IndicatorRelease(ema_long_handle);
   }
@@ -56,7 +53,6 @@ void OnDeinit(const int reason)
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
 void OnTick() {
-  //--- get EMA values
    double ema_short[1], ema_long[1];
    if(CopyBuffer(ema_short_handle, 0, 0, 1, ema_short) != 1 ||
       CopyBuffer(ema_long_handle, 0, 0, 1, ema_long) != 1)
@@ -69,7 +65,7 @@ void OnTick() {
    long posType = -1;
    if(hasPosition) posType = PositionGetInteger(POSITION_TYPE);
 
-  //--- Buy logic
+  //--- Bull
    if(ema_short[0] > ema_long[0])
      {
       // Close Sell position if it exists
@@ -81,7 +77,7 @@ void OnTick() {
          trade.Buy(LotSize, _Symbol, 0, 0, 0, "Open EMA Crossover Buy");
      }
    
-  //--- Sell logic
+  //--- Bear
    else if(ema_short[0] < ema_long[0])
      {
       // Close Buy position if it exists
