@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//|                                                      BotDemo.mq5 |
+//|                                             EMACrossOver1.6.mq5 |
 //|                                  Copyright 2026, MetaQuotes Ltd. |
 //|                                             https://www.mql5.com |
 //+------------------------------------------------------------------+
@@ -16,6 +16,7 @@ input int LongtermPeriod = 200; // Long term EMA period
 input int ATR_Period = 14;      // ATR period for Stop Loss
 input double ATR_Multiplier = 1.5; // ATR multiplier for Stop Loss
 input double RR_Ratio = 2.0;       // Risk:Reward ratio for Take Profit
+input int MagicNumber = 1236;    // Magic Number
 //+------------------------------------------------------------------+
 //| Include files                                                    |
 //+------------------------------------------------------------------+
@@ -28,12 +29,15 @@ int ema_short_handle;
 int ema_long_handle;
 int ema_longterm_handle;
 int atr_handle;
+double ema_short[];
+double ema_long[];
+double ema_longterm[];
+double atr[];
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit()
   {
-//--- create EMA handles
    ema_short_handle = iMA(_Symbol, _Period, ShortPeriod, 0, MODE_EMA, PRICE_CLOSE);
    ema_long_handle = iMA(_Symbol, _Period, LongPeriod, 0, MODE_EMA, PRICE_CLOSE);
    ema_longterm_handle = iMA(_Symbol, _Period, LongtermPeriod, 0, MODE_EMA, PRICE_CLOSE);
@@ -46,10 +50,11 @@ int OnInit()
       return(INIT_FAILED);
      }
 
-//--- set magic number
-   trade.SetExpertMagicNumber(1236);
+   ArraySetAsSeries(ema_short, true);
+   ArraySetAsSeries(ema_long, true);
+
+   trade.SetExpertMagicNumber(MagicNumber);
    
-//---
    return(INIT_SUCCEEDED);
   }
 //+------------------------------------------------------------------+
@@ -57,7 +62,6 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
   {
-//--- release EMA handles
    IndicatorRelease(ema_short_handle);
    IndicatorRelease(ema_long_handle);
    IndicatorRelease(ema_longterm_handle);
@@ -66,11 +70,7 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
-void OnTick() {
-  //--- get EMA and ATR values
-   double ema_short[2], ema_long[2], ema_longterm[1], atr[1];
-   
-   // Copy 2 values for crossover detection
+void OnTick() {   
    if(CopyBuffer(ema_short_handle, 0, 0, 2, ema_short) != 2 ||
       CopyBuffer(ema_long_handle, 0, 0, 2, ema_long) != 2 ||
       CopyBuffer(ema_longterm_handle, 0, 0, 1, ema_longterm) != 1 ||
@@ -79,31 +79,25 @@ void OnTick() {
       return;
      }
 
-   double currentPrice = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    
-   // Crossover detection: 
-   // ema_short[1] is current bar (changing), ema_short[0] is previous bar (fixed)
-   bool isCrossUp = (ema_short[0] <= ema_long[0] && ema_short[1] > ema_long[1]);
-   bool isCrossDown = (ema_short[0] >= ema_long[0] && ema_short[1] < ema_long[1]);
+   bool isCrossUp = (ema_short[1] <= ema_long[1] && ema_short[0] > ema_long[0]);
+   bool isCrossDown = (ema_short[1] >= ema_long[1] && ema_short[0] < ema_long[0]);
 
-  //--- check for buy signal (New Crossover + Filter)
-   if(isCrossUp && currentPrice > ema_longterm[0] && PositionsTotal() == 0)
+   if(isCrossUp && ask > ema_longterm[0] && PositionsTotal() == 0)
      {
       double risk = ATR_Multiplier * atr[0];
-      double sl = currentPrice - risk;
-      double tp = currentPrice + (risk * RR_Ratio);
+      double sl = ask - risk;
+      double tp = ask + (risk * RR_Ratio);
       
-      // Normalize SL/TP to symbol digits
       sl = NormalizeDouble(sl, _Digits);
       tp = NormalizeDouble(tp, _Digits);
       
       trade.Buy(LotSize, _Symbol, 0, sl, tp, "Open EMA Crossover Buy (New Cross + ATR SL)");
      }
    
-  //--- check for exit signal (Opposite Crossover)
    else if(isCrossDown && PositionsTotal() > 0)
      {
-      // close position if crossover reverses
       trade.PositionClose(_Symbol);
      }
 }
