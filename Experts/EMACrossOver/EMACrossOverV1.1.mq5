@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//|                                                      BotDemo.mq5 |
+//|                                             EMACrossOverV1.1.mq5 |
 //|                                  Copyright 2026, MetaQuotes Ltd. |
 //|                                             https://www.mql5.com |
 //+------------------------------------------------------------------+
@@ -9,11 +9,12 @@
 //+------------------------------------------------------------------+
 //| Input parameters                                                 |
 //+------------------------------------------------------------------+
-input double StopLossPips = 400;      // Stop Loss in pips
-input double TakeProfitPips = 800;    // Take Profit in pips
+input double StopLossPips = 40;      // Stop Loss in pips
 input double LotSize = 0.01;         // Lot size for each trade
 input int ShortPeriod = 10;      // Short EMA period
 input int LongPeriod = 20;       // Long EMA period
+input double RR_Ratio = 2.0;       // Risk:Reward ratio for Take Profit
+input int MagicNumber = 123456;    // Magic Number
 //+------------------------------------------------------------------+
 //| Include files                                                    |
 //+------------------------------------------------------------------+
@@ -29,7 +30,6 @@ int ema_long_handle;
 //+------------------------------------------------------------------+
 int OnInit()
   {
-//--- create EMA handles
    ema_short_handle = iMA(_Symbol, _Period, ShortPeriod, 0, MODE_EMA, PRICE_CLOSE);
    ema_long_handle = iMA(_Symbol, _Period, LongPeriod, 0, MODE_EMA, PRICE_CLOSE);
    
@@ -39,10 +39,8 @@ int OnInit()
       return(INIT_FAILED);
      }
 
-//--- set magic number
-   trade.SetExpertMagicNumber(1231);
-   
-//---
+   trade.SetExpertMagicNumber(MagicNumber);
+
    return(INIT_SUCCEEDED);
   }
 //+------------------------------------------------------------------+
@@ -74,7 +72,7 @@ void OnTick() {
   //--- check for buy signal
    if(ema_short[0] > ema_long[0] && PositionsTotal() == 0)
      {
-      if (StopLossPips == 0 && TakeProfitPips == 0)
+      if (StopLossPips == 0)
         {
           // open buy position without SL and TP
           trade.Buy(LotSize, _Symbol, 0, 0, 0, "Open EMA Crossover Buy without SL/TP");
@@ -83,7 +81,7 @@ void OnTick() {
         {
           // calculate SL and TP in prices
           double sl = ask - (StopLossPips * point * 10);   // SL below ask price
-          double tp = ask + (TakeProfitPips * point * 10); // TP above ask price
+          double tp = ask + (RR_Ratio * StopLossPips * point * 10); // TP above ask price
 
           // open buy position
           trade.Buy(LotSize, _Symbol, 0, sl, tp, "Open EMA Crossover Buy with SL/TP");
