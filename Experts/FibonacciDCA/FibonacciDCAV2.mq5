@@ -116,13 +116,13 @@ void ScanForTrend(bool isBuy) {
 //+------------------------------------------------------------------+
 double FindSwingLow(MqlRates &rates[]) {
     int i = 1;
-    while(i < InpMaxFindSwingCandles && rates[i].low < rates[i+1].low) i++;
+    while(i < InpMaxFindSwingCandles && rates[i].low >= rates[i+1].low) i++;
     return rates[i].low;
 }
 
 double FindSwingHigh(MqlRates &rates[]) {
     int i = 1;
-    while(i < InpMaxFindSwingCandles && rates[i].high > rates[i+1].high) i++;
+    while(i < InpMaxFindSwingCandles && rates[i].high <= rates[i+1].high) i++;
     return rates[i].high;
 }
 
@@ -178,16 +178,15 @@ void UpdateTP(int dir) {
     TrendState active = (dir == 1) ? buyChain : sellChain;
     double diff = MathAbs(active.swingHigh - active.swingLow);
     double hitLevel = MathAbs(active.swingHigh - lowestFiboPrice) / diff;
+    double fiboTP[] = {0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.618, 2.618, 3.618};
 
-    double targetFibo = 0;
-    if(hitLevel <= 0.382) targetFibo = 0;
-    else if(hitLevel <= 0.618) targetFibo = 0.236;
-    else if(hitLevel <= 0.786) targetFibo = 0.5;
-    else if(hitLevel <= 1.0)   targetFibo = 0.618;
-    else if(hitLevel <= 1.618) targetFibo = 0.786;
-    else if(hitLevel <= 2.618) targetFibo = 1.0;
-    else if(hitLevel <= 3.618) targetFibo = 1.618;
-    else targetFibo = 2.618;
+    double targetFibo = fiboTP[9];
+    for(int k = 0; k < 10; k++) {
+        if(hitLevel <= fiboLevels[k] + 0.001) {
+            targetFibo = fiboTP[k];
+            break;
+        }
+    }
 
     currentTP = (dir == 1) ? active.swingHigh - (targetFibo * diff) : active.swingHigh + (targetFibo * diff);
 
