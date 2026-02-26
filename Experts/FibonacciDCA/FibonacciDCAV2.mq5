@@ -53,6 +53,9 @@ void OnDeinit(const int reason)
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
 void OnTick() {
+    // Ưu tiên kiểm tra Stop Loss trước mọi logic khác
+    CheckStopLoss();
+
     // Kiểm tra và quản lý chuỗi lệnh
     CheckAndManageChain(buyChain);
     CheckAndManageChain(sellChain);
@@ -64,6 +67,61 @@ void OnTick() {
     // Liên tục update TP dựa theo tick mới
     UpdateTP(1);
     UpdateTP(-1);
+}
+
+//+------------------------------------------------------------------+
+//| Đóng tất cả vị thế theo hướng                                    |
+//+------------------------------------------------------------------+
+void CloseAllPositions(int dir) {
+    for(int i = PositionsTotal()-1; i >= 0; i--) {
+        ulong ticket = PositionGetTicket(i);
+        if(PositionSelectByTicket(ticket) && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber) {
+            if((dir == 1  && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ||
+               (dir == -1 && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)) {
+                trade.PositionClose(ticket);
+            }
+        }
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Stop Loss: đóng lệnh khi nến đóng vượt ra ngoài grid Fibo        |
+//+------------------------------------------------------------------+
+void CheckStopLoss() {
+    // Chỉ xử lý khi có nến mới đóng hoàn thành
+    static datetime lastBar = 0;
+    datetime currentBar = iTime(_Symbol, _Period, 0);
+    if(lastBar == currentBar) return;
+    lastBar = currentBar;
+
+    // Lấy giá đóng cửa của nến vừa hoàn thành (index 1)
+    double closedClose = iClose(_Symbol, _Period, 1);
+
+    // --- Kiểm tra BUY chain ---
+    if(buyChain.active && HasPositions(1)) {
+        double diff = MathAbs(buyChain.swingHigh - buyChain.swingLow);
+        // Mức Fibo sâu nhất (4.236) = giá BuyLimit thấp nhất trong grid
+        double deepestBuyLevel = buyChain.swingHigh - (fiboLevels[9] * diff);
+
+        if(closedClose < deepestBuyLevel) {
+            PrintFormat("[SL BUY] Nến đóng %.5f < Fibo 4.236 (%.5f) → Cắt lỗ!", closedClose, deepestBuyLevel);
+            CloseAllPositions(1);
+            ResetChain(buyChain);
+        }
+    }
+
+    // --- Kiểm tra SELL chain ---
+    if(sellChain.active && HasPositions(-1)) {
+        double diff = MathAbs(sellChain.swingHigh - sellChain.swingLow);
+        // Mức Fibo sâu nhất (4.236) = giá SellLimit cao nhất trong grid
+        double deepestSellLevel = sellChain.swingLow + (fiboLevels[9] * diff);
+
+        if(closedClose > deepestSellLevel) {
+            PrintFormat("[SL SELL] Nến đóng %.5f > Fibo 4.236 (%.5f) → Cắt lỗ!", closedClose, deepestSellLevel);
+            CloseAllPositions(-1);
+            ResetChain(sellChain);
+        }
+    }
 }
 
 //+------------------------------------------------------------------+
