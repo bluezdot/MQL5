@@ -212,47 +212,60 @@ void SetupDCAChain(int dir, double f0, double f1) {
 //| Cập nhật Take Profit theo Level thấp nhất/cao nhất đã khớp       |
 //+------------------------------------------------------------------+
 void UpdateTP(int dir) {
-    double lowestFiboPrice = (dir == 1) ? 999999 : 0;
-    double currentTP = 0;
+    double worstPrice = (dir == 1) ? 999999 : 0;
     int count = 0;
     
-    // Tìm lệnh đã khớp sâu nhất
-    for(int i=PositionsTotal()-1; i>=0; i--) {
+    // Tìm giá entry xấu nhất trong các vị thế đang mở
+    for(int i = PositionsTotal()-1; i >= 0; i--) {
         ulong ticket = PositionGetTicket(i);
         if(PositionSelectByTicket(ticket) && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber) {
-            if((dir == 1 && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ||
+            if((dir == 1  && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ||
                (dir == -1 && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)) {
                 double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
-                if(dir == 1) lowestFiboPrice = MathMin(lowestFiboPrice, openPrice);
-                else lowestFiboPrice = MathMax(lowestFiboPrice, openPrice);
+                if(dir == 1) worstPrice = MathMin(worstPrice, openPrice); // BUY:  thấp nhất = xấu nhất
+                else         worstPrice = MathMax(worstPrice, openPrice); // SELL: cao nhất  = xấu nhất
                 count++;
             }
         }
     }
-
     if(count == 0) return;
 
-    // Xác định mức TP theo logic Fibo
     TrendState active = (dir == 1) ? buyChain : sellChain;
     double diff = MathAbs(active.swingHigh - active.swingLow);
-    double hitLevel = MathAbs(active.swingHigh - lowestFiboPrice) / diff;
-    double fiboTP[] = {0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0, 1.618, 2.618, 3.618};
 
-    double targetFibo = fiboTP[9];
+    // Tìm Fibo level (index) gần nhất với giá entry xấu nhất
+    int deepestIdx = 0;
+    double minDist = DBL_MAX;
     for(int k = 0; k < 10; k++) {
-        if(hitLevel <= fiboLevels[k] + 0.001) {
-            targetFibo = fiboTP[k];
-            break;
+        double fiboEntryPrice = (dir == 1)
+            ? active.swingHigh - fiboLevels[k] * diff  
+            : active.swingLow  + fiboLevels[k] * diff; 
+        double dist = MathAbs(worstPrice - fiboEntryPrice);
+        if(dist < minDist) {
+            minDist = dist;
+            deepestIdx = k;
         }
     }
 
-    currentTP = (dir == 1) ? active.swingHigh - (targetFibo * diff) : active.swingHigh + (targetFibo * diff);
+    // TP = mức Fibo ngay phía trên deepestIdx (1 bước gần hơn điểm neo)
+    double currentTP;
+    if(deepestIdx == 0) {
+        currentTP = (dir == 1) ? active.swingHigh : active.swingLow;
+    } else {
+        currentTP = (dir == 1)
+            ? active.swingHigh - fiboLevels[deepestIdx - 1] * diff  
+            : active.swingLow  + fiboLevels[deepestIdx - 1] * diff; 
+    }
 
-    // Áp dụng TP cho toàn bộ vị thế
-    for(int i=PositionsTotal()-1; i>=0; i--) {
-        if(PositionSelectByTicket(PositionGetTicket(i)) && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber) {
-            if(MathAbs(PositionGetDouble(POSITION_TP) - currentTP) > _Point) {
-                trade.PositionModify(PositionGetTicket(i), 0, currentTP);
+    // Áp dụng TP cho vị thế đúng hướng (chỉ BUY hoặc chỉ SELL)
+    for(int i = PositionsTotal()-1; i >= 0; i--) {
+        ulong ticket = PositionGetTicket(i);
+        if(PositionSelectByTicket(ticket) && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber) {
+            if((dir == 1  && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ||
+               (dir == -1 && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)) {
+                if(MathAbs(PositionGetDouble(POSITION_TP) - currentTP) > _Point) {
+                    trade.PositionModify(ticket, 0, currentTP);
+                }
             }
         }
     }
