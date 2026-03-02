@@ -11,10 +11,24 @@ input int InpSL = 150; // stop loss in % of the range (0=off)
 input int InpTP = 200; // take profit in % of the range (0=off)
 
 input group "==== Time Range Inputs ===="
-input int InpRangeStart = 600;      // Range start time in minutes
-input int InpRangeDuration = 120;   // Range duration in minutes
+input int InpRangeStart = 0;      // Range start time in minutes
+input int InpRangeDuration = 420;   // Range duration in minutes
 input int InpRangeClose = 1200;     // Range close time in minutes
 input bool InpUseCloseTime = true;  // Flag if use close time
+
+// Phiên Úc (Sydney): Mở cửa sớm nhất, thị trường thường yên tĩnh.
+// Giờ mùa hè: 4:00 - 13:00 (VN)
+// Giờ mùa đông: 5:00 - 14:00 (VN)
+// Phiên Á (Tokyo): Bắt đầu giao dịch sôi động hơn sau phiên Úc.
+// Giờ mùa hè: 6:00 - 15:00 (VN)
+// Giờ mùa đông: 6:00 - 15:00 (VN)
+// Phiên Âu (London): Thanh khoản tăng cao, giá vàng thường bắt đầu xu hướng mới.
+// Giờ mùa hè: 14:00 - 23:00 (VN)
+// Giờ mùa đông: 15:00 - 24:00 (VN)
+// Phiên Mỹ/New York (NY): Phiên quan trọng nhất, khối lượng giao dịch lớn nhất và biến động giá mạnh nhất, thường chịu ảnh hưởng bởi tin tức kinh tế Mỹ.
+// Giờ mùa hè: 19:00 - 4:00 sáng hôm sau (VN)
+// Giờ mùa đông: 20:00 - 5:00 sáng hôm sau (VN) 
+
 
 enum BREAKOUT_MODE_ENUM {
    BREAKOUT_MODE_HIGH_LOW, // buy and sell
@@ -96,6 +110,16 @@ void OnDeinit(const int reason) {
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
 void OnTick() {
+
+  Comment("Range Start: ", range.start_time, "\n",
+          "Range End: ", range.end_time, "\n",
+          "Range Close: ", range.close_time, "\n",
+          "Range High: ", range.high, "\n",
+          "Range Low: ", range.low, "\n",
+          "Range Entry: ", range.f_entry, "\n",
+          "Range High Breakout: ", range.f_high_breakout, "\n",
+          "Range Low Breakout: ", range.f_low_breakout);
+
    // Get current tick
    prevTick = lastTick;
    SymbolInfoTick(_Symbol, lastTick);
