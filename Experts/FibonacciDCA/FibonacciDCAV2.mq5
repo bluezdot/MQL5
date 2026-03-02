@@ -351,3 +351,9 @@ void CancelAllLimits(int dir) {
         }
     }
 }
+
+// Improved so với V1
+// - Fix Rule đặt TP
+// - Fix Rule Reset Chain: Khi có lệnh cắn TP thì phải reset chain
+// - Bổ sung Stoploss
+// - Fix logic vào lệnh (Kẻ fibonacci)
