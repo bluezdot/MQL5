@@ -4,11 +4,33 @@
 //+------------------------------------------------------------------+
 //| Input parameters                                                 |
 //+------------------------------------------------------------------+
-input int InpRangeStart = 600;      // in minutes
-input int InpRangeDuration = 120;   // in minutes
-input int InpRangeClose = 1200;     // in minutes
+input group "==== General Inputs ===="
 input double InpLotSize = 0.01;
 input long InpMagicNumber = 123456;
+input int InpSL = 150; // stop loss in % of the range (0=off)
+input int InpTP = 200; // take profit in % of the range (0=off)
+
+input group "==== Time Range Inputs ===="
+input int InpRangeStart = 600;      // Range start time in minutes
+input int InpRangeDuration = 120;   // Range duration in minutes
+input int InpRangeClose = 1200;     // Range close time in minutes
+input bool InpUseCloseTime = true;  // Flag if use close time
+
+enum BREAKOUT_MODE_ENUM {
+   BREAKOUT_MODE_HIGH_LOW, // buy and sell
+   BREAKOUT_MODE_HIGH, // only buy
+   BREAKOUT_MODE_LOW, // only sell
+   BREAKOUT_MODE_ONE_TRADE_PER_RANGE // only one trade (buy/sell) for a range
+};
+
+input BREAKOUT_MODE_ENUM InpBreakoutMode = BREAKOUT_MODE_HIGH_LOW; // breakout mode
+
+input group "==== Day Filter Inputs ===="
+input bool InpMonday = true; // active trade on Monday
+input bool InpTuesday = true; // active trade on Tuesday
+input bool InpWednesday = true; // active trade on Wednesday
+input bool InpThursday = true; // active trade on Thursday
+input bool InpFriday = true; // active trade on Friday
 
 //+------------------------------------------------------------------+
 //| Include files                                                    |
@@ -28,7 +50,7 @@ struct RANGE_STRUCT{
   bool     f_high_breakout;     // flag if we have a high breakout
   bool     f_low_breakout;      // flag if we have a low breakout
 
-  RANGE_STRUCT() : start_time(0), end_time(0), close_time(0), high(0), low(999999), f_entry(false), f_high_breakout(false), f_low_breakout(false) {}
+  RANGE_STRUCT() : start_time(0), end_time(0), close_time(0), high(0), low(DBL_MAX), f_entry(false), f_high_breakout(false), f_low_breakout(false) {}
 };
 
 RANGE_STRUCT range;
@@ -40,10 +62,23 @@ CTrade trade;
 //+------------------------------------------------------------------+
 int OnInit() {
 
+  // todo: validate input
+
   if (InpMagicNumber <= 0) {
     Alert("Magic Number must be greater than 0");
     return INIT_FAILED;
   }
+  
+  // set magicnumber
+  trade.SetExpertMagicNumber(InpMagicNumber);
+
+  // calculated new range if inputs changed
+  if (_UninitReason == REASON_PARAMETERS && CountOpenPositions() == 0) {
+    CalculateRange();
+  }
+
+  // draw objects
+  DrawObjects();
 
   return(INIT_SUCCEEDED);
 }
@@ -82,15 +117,20 @@ void OnTick() {
          DrawObjects();
       }
    }
+
+   // close position if range close time is reached
+   if (InpUseCloseTime && lastTick.time >= range.close_time && range.close_time > 0) {
+      if(!ClosePositions()) {return;}
+   }
    
    // time range calculation
-   if ((InpRangeClose >= 0 && lastTick.time >= range.close_time)                      // close time reached
+   if (((InpRangeClose >= 0 && lastTick.time >= range.close_time)                     // close time reached
       || (range.f_high_breakout && range.f_low_breakout)                              // both breakout flags are true
       || range.end_time == 0                                                          // range not calculated yet
-      || (range.end_time != 0 && lastTick.time > range.end_time && !range.f_entry)){  // there was a range calculated but no tick inside
-      // CountOpenPosition()==0
+      || (range.end_time != 0 && lastTick.time > range.end_time && !range.f_entry))   // there was a range calculated but no tick inside
+      && CountOpenPositions()==0) {
       
-      CalculateRange();   
+      CalculateRange();
    }
 
    // check for breakouts
@@ -116,7 +156,7 @@ void CalculateRange () {
       MqlDateTime tmp;
       TimeToStruct(range.start_time, tmp);
       int dow = tmp.day_of_week;
-      if (lastTick.time >= range.start_time || dow == 6 || dow == 0) {
+      if (lastTick.time >= range.start_time || dow == 6 || dow == 0 || (dow == 1 && !InpMonday) || (dow == 2 && !InpTuesday) || (dow == 3 && !InpWednesday) || (dow == 4 && !InpThursday) || (dow == 5 && !InpFriday)) {
          range.start_time += time_cycle;
       }
    }
@@ -133,13 +173,15 @@ void CalculateRange () {
    }
    
    // calculate range close
-   range.close_time = (range.end_time - (range.end_time % time_cycle)) + InpRangeClose*60;
-   for (int i=0; i<3; i++) {
-      MqlDateTime tmp;
-      TimeToStruct(range.close_time, tmp);
-      int dow = tmp.day_of_week;
-      if (range.close_time <= range.end_time || dow == 6 || dow == 0) {
-         range.close_time += time_cycle;
+   if (InpUseCloseTime) {
+      range.close_time = (range.end_time - (range.end_time % time_cycle)) + InpRangeClose*60;
+      for (int i=0; i<3; i++) {
+         MqlDateTime tmp;
+         TimeToStruct(range.close_time, tmp);
+         int dow = tmp.day_of_week;
+         if (range.close_time <= range.end_time || dow == 6 || dow == 0) {
+            range.close_time += time_cycle;
+         }
       }
    }
    
@@ -147,21 +189,113 @@ void CalculateRange () {
    DrawObjects();
 }
 
+int CountOpenPositions () {
+   int counter = 0;
+   int total = PositionsTotal();
+   
+   for (int i=total-1; i>=0; i--) {
+      ulong ticket = PositionGetTicket(i);
+      
+      if (ticket <= 0) {
+         Print("Failed to get position ticket");
+         return -1;
+      }
+      
+      if (!PositionSelectByTicket(ticket)) {
+         Print("Failed to select position by ticket");
+         return -1;
+      }
+      
+      long magicnumber;
+      
+      if (!PositionGetInteger(POSITION_MAGIC, magicnumber)) {
+         Print("Failed to get position magicnumber");
+         return -1;
+      }
+      
+      if (InpMagicNumber == magicnumber) {
+         counter++;
+      }
+   }
+   
+   return counter;
+}
+
 void CheckBreakouts() {
    // check if we are after the range end
    if (lastTick.time >= range.end_time && range.end_time > 0 && range.f_entry) {
       // check for high breakout
-      if (lastTick.ask > range.high) {
+      if (InpBreakoutMode != BREAKOUT_MODE_LOW && !range.f_high_breakout && lastTick.ask >= range.high) {
          range.f_high_breakout = true;
-         DrawObjects();
+
+         if (InpBreakoutMode == BREAKOUT_MODE_ONE_TRADE_PER_RANGE) {
+            range.f_low_breakout = true;
+         }
+         
+         // cal sl & tp
+         double sl = InpSL == 0 ? 0 : NormalizeDouble(lastTick.bid - ((range.high - range.low) * InpSL * 0.01), _Digits);
+         double tp = InpTP == 0 ? 0 : NormalizeDouble(lastTick.bid + ((range.high - range.low) * InpTP * 0.01), _Digits);
+
+         trade.PositionOpen(_Symbol, ORDER_TYPE_BUY, InpLotSize, lastTick.ask, sl, tp, "Range Breakout Buy");
       }
    
       // check for low breakout
-      if (lastTick.bid < range.low) {
+      if (InpBreakoutMode != BREAKOUT_MODE_HIGH && !range.f_low_breakout && lastTick.bid <= range.low) {
          range.f_low_breakout = true;
-         DrawObjects();
+
+         if (InpBreakoutMode == BREAKOUT_MODE_ONE_TRADE_PER_RANGE) {
+            range.f_high_breakout = true;
+         }
+         
+         // cal sl & tp
+         double sl = InpSL == 0 ? 0 : NormalizeDouble(lastTick.ask + (range.high - range.low) * InpSL * 0.01, _Digits);
+         double tp = InpTP == 0 ? 0 : NormalizeDouble(lastTick.ask - (range.high - range.low) * InpTP * 0.01, _Digits);
+
+         trade.PositionOpen(_Symbol, ORDER_TYPE_SELL, InpLotSize, lastTick.bid, sl, tp, "Range Breakout Sell");
       }
    }
+}
+
+bool ClosePositions() {
+   int total = PositionsTotal();
+   
+   for (int i=total-1; i>=0; i--) {
+      if (total != PositionsTotal()) {
+         total = PositionsTotal(); 
+         i = total;
+         continue;  
+      }
+      
+      ulong ticket = PositionGetTicket(i); // select position
+      
+      if (ticket <= 0) {
+         Print("Failed to get postion ticket");
+         return false;
+      }
+      
+      if (!PositionSelectByTicket(ticket)) {
+         Print("Failed to select position by ticket");
+         return false;
+      }
+      
+      long magicnumber;
+      
+      if (!PositionGetInteger(POSITION_MAGIC, magicnumber)) {
+         Print("Failed to get position magic number");
+         return false;
+      }
+      
+      if (magicnumber == InpMagicNumber) {
+         trade.PositionClose(ticket);
+         
+         if (trade.ResultRetcode() != TRADE_RETCODE_DONE) {
+            Print("Failed to close position. Result: " + (string)trade.ResultRetcode() + ":" + trade.ResultRetcodeDescription());
+            return false;
+         }
+      }
+   }
+
+   return true;
 }
 
 void DrawObjects() {
@@ -204,7 +338,7 @@ void DrawObjects() {
       ObjectSetInteger(NULL, "range high", OBJPROP_WIDTH, 2);
       ObjectSetInteger(NULL, "range high", OBJPROP_BACK, true);
 
-      ObjectCreate(NULL, "range high forward", OBJ_TREND, 0, range.end_time, range.high, range.close_time, range.high);
+      ObjectCreate(NULL, "range high forward", OBJ_TREND, 0, range.end_time, range.high, InpUseCloseTime ? range.close_time : INT_MAX, range.high);
       ObjectSetString(NULL, "range high forward", OBJPROP_TOOLTIP, "high of the range \n" + DoubleToString(range.high, _Digits));
       ObjectSetInteger(NULL, "range high forward", OBJPROP_COLOR, clrBlue);
       ObjectSetInteger(NULL, "range high forward", OBJPROP_STYLE, STYLE_DOT);
@@ -213,17 +347,20 @@ void DrawObjects() {
 
    // low
    ObjectsDeleteAll(NULL, "range low");
-   if (range.low < 999999) {
+   if (range.low < DBL_MAX) {
       ObjectCreate(NULL, "range low", OBJ_TREND, 0, range.start_time, range.low, range.end_time, range.low);
       ObjectSetString(NULL, "range low", OBJPROP_TOOLTIP, "low of the range \n" + DoubleToString(range.low, _Digits));
       ObjectSetInteger(NULL, "range low", OBJPROP_COLOR, clrBlue);
       ObjectSetInteger(NULL, "range low", OBJPROP_WIDTH, 2);
       ObjectSetInteger(NULL, "range low", OBJPROP_BACK, true);
 
-      ObjectCreate(NULL, "range low forward", OBJ_TREND, 0, range.end_time, range.low, range.close_time, range.low);
+      ObjectCreate(NULL, "range low forward", OBJ_TREND, 0, range.end_time, range.low, InpUseCloseTime ? range.close_time : INT_MAX, range.low);
       ObjectSetString(NULL, "range low forward", OBJPROP_TOOLTIP, "low of the range \n" + DoubleToString(range.low, _Digits));
       ObjectSetInteger(NULL, "range low forward", OBJPROP_COLOR, clrBlue);
       ObjectSetInteger(NULL, "range low forward", OBJPROP_STYLE, STYLE_DOT);
       ObjectSetInteger(NULL, "range low forward", OBJPROP_BACK, true);
    }
+
+   // refresh chart
+   ChartRedraw();
 }
