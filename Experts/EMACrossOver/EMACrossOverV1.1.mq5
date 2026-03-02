@@ -9,7 +9,7 @@
 //+------------------------------------------------------------------+
 //| Input parameters                                                 |
 //+------------------------------------------------------------------+
-input double StopLossPips = 40;      // Stop Loss in pips
+input double StopLossPips = 400;      // Stop Loss in pips (0=off)
 input double LotSize = 0.01;         // Lot size for each trade
 input int ShortPeriod = 10;      // Short EMA period
 input int LongPeriod = 20;       // Long EMA period
@@ -72,20 +72,12 @@ void OnTick() {
   //--- check for buy signal
    if(ema_short[0] > ema_long[0] && PositionsTotal() == 0)
      {
-      if (StopLossPips == 0)
-        {
-          // open buy position without SL and TP
-          trade.Buy(LotSize, _Symbol, 0, 0, 0, "Open EMA Crossover Buy without SL/TP");
-        }
-      else 
-        {
-          // calculate SL and TP in prices
-          double sl = ask - (StopLossPips * point * 10);   // SL below ask price
-          double tp = ask + (RR_Ratio * StopLossPips * point * 10); // TP above ask price
+        // calculate SL and TP in prices
+        double sl = StopLossPips == 0 ? 0 : ask - (StopLossPips * point * 10);   // SL below ask price
+        double tp = StopLossPips == 0 ? 0 : ask + (RR_Ratio * StopLossPips * point * 10); // TP above ask price
 
-          // open buy position
-          trade.Buy(LotSize, _Symbol, 0, sl, tp, "Open EMA Crossover Buy with SL/TP");
-        }
+        // open buy position
+        trade.Buy(LotSize, _Symbol, 0, sl, tp, "Open EMA Crossover Buy with SL/TP");
      }
    
   //--- check for sell signal (close position)

@@ -67,6 +67,20 @@ void OnTick() {
       return;
      }
    
+   // Get current close price
+   double close_price = iClose(_Symbol, _Period, 0);
+   
+   // Check exit conditions first
+   if(PositionsTotal() > 0)
+     {
+      // Close position if EMA crossover (short crosses below long) OR if close price is below long EMA
+      if(ema_short[0] < ema_long[0] || close_price < ema_long[0])
+        {
+         trade.PositionClose(_Symbol);
+        }
+     }
+   
+   // Check entry condition
    if(ema_short[0] > ema_long[0] && PositionsTotal() == 0)
      {
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
@@ -78,9 +92,5 @@ void OnTick() {
       double tp = ask + (RR_Ratio * risk);
 
       trade.Buy(LotSize, _Symbol, 0, sl, tp, "Open EMA Crossover Buy with SL/TP");
-     }
-   else if(ema_short[0] < ema_long[0] && PositionsTotal() > 0)
-     {
-      trade.PositionClose(_Symbol);
      }
 }
