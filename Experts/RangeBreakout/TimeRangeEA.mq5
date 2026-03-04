@@ -12,7 +12,7 @@ input int InpTP = 200; // take profit in % of the range (0=off)
 
 input group "==== Time Range Inputs ===="
 input int InpRangeStart = 0;      // Range start time in minutes
-input int InpRangeDuration = 420;   // Range duration in minutes
+input int InpRangeDuration = 360;   // Range duration in minutes
 input int InpRangeClose = 1200;     // Range close time in minutes
 input bool InpUseCloseTime = true;  // Flag if use close time
 
@@ -28,7 +28,6 @@ input bool InpUseCloseTime = true;  // Flag if use close time
 // Phiên Mỹ/New York (NY): Phiên quan trọng nhất, khối lượng giao dịch lớn nhất và biến động giá mạnh nhất, thường chịu ảnh hưởng bởi tin tức kinh tế Mỹ.
 // Giờ mùa hè: 19:00 - 4:00 sáng hôm sau (VN)
 // Giờ mùa đông: 20:00 - 5:00 sáng hôm sau (VN) 
-
 
 enum BREAKOUT_MODE_ENUM {
    BREAKOUT_MODE_HIGH_LOW, // buy and sell
@@ -180,19 +179,32 @@ void CalculateRange () {
       MqlDateTime tmp;
       TimeToStruct(range.start_time, tmp);
       int dow = tmp.day_of_week;
-      if (lastTick.time >= range.start_time || dow == 6 || dow == 0 || (dow == 1 && !InpMonday) || (dow == 2 && !InpTuesday) || (dow == 3 && !InpWednesday) || (dow == 4 && !InpThursday) || (dow == 5 && !InpFriday)) {
+      if (lastTick.time >= range.start_time + InpRangeDuration*60 || dow == 6 || dow == 0 || (dow == 1 && !InpMonday) || (dow == 2 && !InpTuesday) || (dow == 3 && !InpWednesday) || (dow == 4 && !InpThursday) || (dow == 5 && !InpFriday)) {
          range.start_time += time_cycle;
       }
    }
    
    // calculate range end time
    range.end_time = range.start_time + InpRangeDuration*60;
-   for (int i =0; i<2; i++) {
+   for (int i=0; i<2; i++) {
       MqlDateTime tmp;
       TimeToStruct(range.end_time, tmp);
       int dow = tmp.day_of_week;
       if (dow==6 || dow==0) {
          range.end_time += time_cycle;
+      }
+   }
+   
+   // if bot starts mid-range, initialize high/low from historical bar data
+   if (lastTick.time > range.start_time && lastTick.time < range.end_time) {
+      MqlRates rates[];
+      int copied = CopyRates(_Symbol, _Period, range.start_time, lastTick.time, rates);
+      if (copied > 0) {
+         for (int i = 0; i < copied; i++) {
+            if (rates[i].high > range.high) range.high = rates[i].high;
+            if (rates[i].low  < range.low)  range.low  = rates[i].low;
+         }
+         range.f_entry = true;
       }
    }
    
