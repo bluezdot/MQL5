@@ -18,12 +18,14 @@ enum ORB_STATE_ENUM {
 //+------------------------------------------------------------------+
 input group "==== General Settings ===="
 input long   InpMagicNumber          = 111222;    // Magic Number
-input int    InpMarketOpenHour       = 1;         // Market open hour (server time)
+input int    InpOpenBar              = 1;         // ORB bar index from day start (0=first bar of day). E.g. H1: bar 1 = 01:00; M15: bar 4 = 01:00
 input int    InpMinComposition       = 3;         // Min candles inside range to finalize
 
-input group "==== Trade Settings ===="
+input group "==== TP/SL Settings ===="
 input int    InpSLPoints             = 4000;      // Stop Loss in points (0=off)
 input int    InpTPPoints             = 12000;     // Take Profit in points (0=off)
+
+input group "==== Trailing Stop ===="
 input bool   InpUseTrail             = false;     // Enable Trailing Stop
 input int    InpTrailPoints          = 1500;      // Trailing Stop distance in points
 input int    InpTrailStep            = 100;       // Trailing step in points (min move)
@@ -97,8 +99,8 @@ void OnTick() {
    // Trailing stop management on every tick
    if (InpUseTrail) ManageTrailingStop();
 
-   // Detect new H1 bar
-   datetime curBar = iTime(_Symbol, PERIOD_H1, 0);
+   // Detect new bar
+   datetime curBar = iTime(_Symbol, _Period, 0);
    if (curBar != g_lastBarTime) {
       g_lastBarTime = curBar;
       OnNewBar(curBar);
@@ -113,7 +115,7 @@ void OnTick() {
 }
 
 //+------------------------------------------------------------------+
-//| New H1 bar handler                                               |
+//| New bar handler                                                  |
 //+------------------------------------------------------------------+
 void OnNewBar(datetime barOpenTime) {
    CheckDayReset(barOpenTime);
@@ -142,27 +144,31 @@ void CheckDayReset(datetime barTime) {
 }
 
 //+------------------------------------------------------------------+
-//| State machine — runs once per H1 bar                             |
+//| State machine — runs once per bar                                |
 //+------------------------------------------------------------------+
 void RunStateMachine() {
    // Read the bar that JUST CLOSED (index 1)
-   datetime closedBarTime = iTime (_Symbol, PERIOD_H1, 1);
-   double   closedHigh    = iHigh (_Symbol, PERIOD_H1, 1);
-   double   closedLow     = iLow  (_Symbol, PERIOD_H1, 1);
+   datetime closedBarTime = iTime (_Symbol, _Period, 1);
+   double   closedHigh    = iHigh (_Symbol, _Period, 1);
+   double   closedLow     = iLow  (_Symbol, _Period, 1);
 
-   MqlDateTime dt;
-   TimeToStruct(closedBarTime, dt);
+   // Calculate bar index from midnight (period-agnostic: works on any TF)
+   // E.g. H1 → PeriodSeconds=3600, bar 4 = 04:00
+   //      M15 → PeriodSeconds=900,  bar 4 = 01:00
+   datetime midnight     = closedBarTime - (closedBarTime % 86400);
+   int      periodSecs   = PeriodSeconds(_Period);
+   int      barIndexOfDay = (int)((closedBarTime - midnight) / periodSecs);
 
    if (g_state == ORB_IDLE) {
-      // The initial range candle is the H1 bar that opened at InpMarketOpenHour:00
-      if (dt.hour == InpMarketOpenHour) {
+      // The initial range candle is the bar whose index from day-start equals InpOpenBar
+      if (barIndexOfDay == InpOpenBar) {
          g_range.initCandleTime = closedBarTime;
          g_range.high           = closedHigh;
          g_range.low            = closedLow;
          g_range.composition    = 0;
          g_state                = ORB_FORMING;
          DrawObjects();
-         Print("[ORB] Initial range set. High=", g_range.high, " Low=", g_range.low);
+         Print("[ORB] Initial range set (bar #", InpOpenBar, " of day). High=", g_range.high, " Low=", g_range.low);
       }
    }
    else if (g_state == ORB_FORMING) {
@@ -202,9 +208,6 @@ void RunStateMachine() {
 //+------------------------------------------------------------------+
 void CheckBreakout() {
    if (!IsTradingDay())        return;
-   // if (!CheckEquityDrawdown())                      return;  // [Equity Monitor]
-   // if (!CheckLossStreak())                          return;  // [Equity Monitor]
-   // if (InpSlopeDetection && IsEquitySlopeBearish()) return;  // [Equity Monitor]
    if (g_range.high <= 0 || g_range.low >= DBL_MAX) return;
 
    // BUY signal: price breaks above range high
@@ -374,6 +377,7 @@ void ShowComment() {
 
    Comment(
       "=== GOLD ORB v1 ===\n",
+      "TF / OpenBar: ", EnumToString(_Period), " / bar #", InpOpenBar, "\n",
       "State      : ", stateStr,          "\n",
       "Range High : ", highStr,           "\n",
       "Range Low  : ", lowStr,            "\n",
