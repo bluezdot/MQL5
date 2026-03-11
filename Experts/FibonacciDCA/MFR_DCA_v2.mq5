@@ -1,16 +1,10 @@
-//+------------------------------------------------------------------+
-//|                                     Fibonacci_DCA_Martingale.mq5 |
-//|                                  Copyright 2026, MetaQuotes Ltd. |
-//|                                             https://www.mql5.com |
-//+------------------------------------------------------------------+
-#property copyright "Copyright 2026, MetaQuotes Ltd."
-#property link      "https://www.mql5.com"
-#property version   "1.00"
+#property version   "2.00"
 //+------------------------------------------------------------------+
 //| Input parameters                                                 |
 //+------------------------------------------------------------------+
 input double   InpBaseLot          = 0.01;      // Base Lot Size
 input double   InpBaseTrendRange   = 10000;     // Base Trend Price Range (Points) - hợp lý với M15
+// 30000 - M30
 input int      InpBaseTrendCandles = 3;         // Base Trend Number Candles
 input int      InpMaxFindSwingCandles = 20;     // Max Number Candles to find swing
 input long     InpMagicNumber      = 123456;    // Magic Number
@@ -264,7 +258,8 @@ void UpdateTP(int dir) {
             if((dir == 1  && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ||
                (dir == -1 && PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL)) {
                 if(MathAbs(PositionGetDouble(POSITION_TP) - currentTP) > _Point) {
-                    trade.PositionModify(ticket, 0, currentTP);
+                    double currentSL = PositionGetDouble(POSITION_SL); // Giữ nguyên SL
+                    trade.PositionModify(ticket, currentSL, currentTP);
                 }
             }
         }
@@ -285,8 +280,10 @@ void CheckAndManageChain(TrendState &state) {
 
     if(!hasPos) {
         // Trường hợp 1: Chưa khớp lệnh nào, giá phá swing → xu hướng sai
+        // Buy: giá vượt lên trên SwingHigh → pullback không xảy ra, xu hướng sai
+        // Sell: giá rơi xuống dưới SwingLow → pullback không xảy ra, xu hướng sai
         if((state.direction == 1  && currentPrice >= state.swingHigh) ||
-           (state.direction == -1 && currentPrice <= state.swingHigh)) {
+           (state.direction == -1 && currentPrice <= state.swingLow)) {
             ResetChain(state);
             return;
         }
