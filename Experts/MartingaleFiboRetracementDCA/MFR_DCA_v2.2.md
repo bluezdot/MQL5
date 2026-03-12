@@ -38,8 +38,8 @@
 | 3 | **Skip Fibo đã vượt** | `SetupDCAChain` bỏ qua level bị giá vượt qua, giữ lot theo absolute index (Cách A) |
 | 4 | **Giữ SL khi modify TP** | `PositionModify(ticket, currentSL, currentTP)` — không xóa SL khi cập nhật TP |
 | 5 | **Fix logic reset Sell chain** | Dùng `anchor` (đáy trend) thay vì `swingHigh` sai chiều |
-| 6 | **Trend filter mạnh hơn** | Thêm **Higher Low** (Buy) / **Lower High** (Sell) vào bộ lọc trend |
-| 7 | **Index đồng nhất** | Trend check, anchor, FindSwing đều start từ `rates[2]` để đúng với map index mới |
+| 6 | **Index đồng nhất** | Trend check, anchor, FindSwing đều start từ `rates[2]` để đúng với map index mới |
+| 7 | **Pullback lỏng hơn** | Nến pullback chỉ cần wick chọc qua nến trước, không cần close chọc qua để xác định |
 
 ---
 

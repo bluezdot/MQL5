@@ -143,10 +143,8 @@ void ScanForTrend(int dir) {
     for(int i = 2; i <= InpBaseTrendCandles + 1; i++) {
         if(dir == 1) {
             if(rates[i].close <= rates[i+1].close) isTrend = false; // Higher Close
-            if(rates[i].low   <= rates[i+1].low)   isTrend = false; // Higher Low
         } else {
             if(rates[i].close >= rates[i+1].close) isTrend = false; // Lower Close
-            if(rates[i].high  >= rates[i+1].high)  isTrend = false; // Lower High
         }
         range += MathAbs(rates[i].high - rates[i].low);
     }
@@ -159,7 +157,7 @@ void ScanForTrend(int dir) {
         for(int k = 2; k <= InpBaseTrendCandles + 1; k++)
             swingHigh = MathMax(swingHigh, rates[k].high);
 
-        if(rates[1].close < rates[2].low)
+        if(rates[1].low < rates[2].low)
             SetupDCAChain(1, swingHigh, FindSwingLow(rates));
 
     } else {
@@ -168,7 +166,7 @@ void ScanForTrend(int dir) {
         for(int k = 2; k <= InpBaseTrendCandles + 1; k++)
             swingLow = MathMin(swingLow, rates[k].low);
 
-        if(rates[1].close > rates[2].high)
+        if(rates[1].high > rates[2].high)
             SetupDCAChain(-1, swingLow, FindSwingHigh(rates));
     }
 }
