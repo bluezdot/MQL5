@@ -1,0 +1,4 @@
+InpBaseLot=0.01
+InpBaseTrendRange=30000.0
+InpBaseTrendCandles=3
+InpMagicNumber=13

@@ -1,0 +1,21 @@
+; ==== General Settings ====
+InpMagicNumber=16
+InpSessionStartHour=21
+InpMarketOpenHour=22
+InpMinComposition=3
+; ==== TP/SL Settings ====
+InpSLPoints=5000
+InpTPPoints=15000
+; ==== Trailing Stop ====
+InpUseTrail=false
+InpTrailPoints=1500
+InpTrailStep=100
+; ==== Risk Management ====
+InpFixedLot=0.1
+InpRiskPerTradePercent=1
+; ==== Day Filter ====
+InpMonday=true
+InpTuesday=true
+InpWednesday=true
+InpThursday=true
+InpFriday=true

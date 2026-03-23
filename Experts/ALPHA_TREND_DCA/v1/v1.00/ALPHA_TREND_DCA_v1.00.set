@@ -1,0 +1,32 @@
+; saved on 2026.03.02 13:12:05
+; this file contains input parameters for testing/optimizing AlphaTrendLongBot expert advisor
+; to use it in the strategy tester, click Load in the context menu of the Inputs tab
+;
+; === Position Sizing ===
+InpBaseLot=0.1||0.01||0.001000||0.100000||N
+InpMaxDCA=9||5||1||50||N
+; === Lot Scaling ===
+InpScaleLot=true||false||0||true||N
+InpBaseBalance=200000.0||100000.0||10000.000000||1000000.000000||N
+; === DCA Grid ===
+InpGrid=100||200||1||2000||N
+; === Take Profit ===
+InpTpMax=1.5||1.5||0.150000||15.000000||N
+InpTpMin=1.05||1.0||0.100000||10.000000||N
+; === Stop Loss ===
+InpSLCandle=18||12||1||120||N
+InpSLPoint=1000||10||1||100||N
+InpSLFlex=1000||50||1||500||N
+; === Signal Confirmation ===
+InpConfirmBars=1||2||1||20||N
+; === Risk Control ===
+InpCloseOnRev=false||false||0||true||N
+InpUseSL=true||false||0||true||N
+; === AlphaTrend Settings ===
+InpATCoeff=1.0||1.0||0.100000||10.000000||N
+InpATPeriod=14||14||1||140||N
+InpATNoVol=false||false||0||true||N
+InpSignalTF=1||0||0||49153||N
+; === EA Settings ===
+InpMagic=1||202601||1||2026010||N
+InpPrintLog=true||false||0||true||N

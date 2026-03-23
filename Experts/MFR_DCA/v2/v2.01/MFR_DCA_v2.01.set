@@ -1,0 +1,6 @@
+InpBaseLot=0.01
+InpLotMultiplier = 1.0
+InpBaseTrendRange=30000.0
+InpBaseTrendCandles=3
+InpMaxFindSwingCandles=20
+InpMagicNumber=15

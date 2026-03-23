@@ -1,0 +1,20 @@
+; ==== General Inputs ====
+InpLotSize=0.01
+InpMagicNumber=20
+; ==== SL / TP Inputs ====
+InpSLPct=100
+InpTPPct=100
+; ==== Time Range Inputs ====
+InpRangeStartHour=22
+InpRangeStartMinute=0
+InpRangeEndHour=9
+InpRangeEndMinute=0
+InpRangeCloseHour=20
+InpRangeCloseMinute=0
+InpBreakoutMode=0
+; ==== Day Filter Inputs ====
+InpMonday=true
+InpTuesday=true
+InpWednesday=true
+InpThursday=true
+InpFriday=true
