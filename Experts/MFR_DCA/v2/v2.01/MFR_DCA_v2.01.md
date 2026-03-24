@@ -37,7 +37,7 @@
 
 ### ==== General Settings ====
 | Input Variable | Mặc Định | Mô tả |
-|---|---|---|---|
+|---|---|---|
 | `InpBaseLot` | 0.01 | Lot size cơ bản. |
 | `InpLotMultiplier` | 1.0 | Hệ số nhân lot tổng thể. |
 | `InpBaseTrendRange` | 10000 | Biên độ tối thiểu (points) mà chuỗi nến phải đạt để xác nhận xu hướng. |
